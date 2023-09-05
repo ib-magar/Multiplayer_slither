@@ -100,12 +100,11 @@ namespace Unity.BossRoom.Infrastructure
         /// </summary>
         public void ReturnNetworkObject(NetworkObject networkObject, GameObject prefab)
         {
-            
-            m_PooledObjects[prefab].Release(networkObject);
+                m_PooledObjects[prefab].Release(networkObject);
         }
 
 
-      
+
 
         /// <summary>
         /// Builds up the cache for a prefab.

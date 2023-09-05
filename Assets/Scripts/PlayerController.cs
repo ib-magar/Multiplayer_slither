@@ -19,6 +19,9 @@ public class PlayerController : NetworkBehaviour
 
     [CanBeNull] public static event Action GameOverEvent;
     private readonly ulong[] _targetClientArray = new ulong[1];
+
+    bool _canCollide = true;
+
     private void Initialize()
     {
         _mainCamera = Camera.main;
@@ -39,6 +42,39 @@ public class PlayerController : NetworkBehaviour
     private void Update()
     {
         if (!IsOwner ||  !Application.isFocused) return;
+        MovePlayerServer();
+    }
+
+    //Server authorative movement
+    private void MovePlayerServer()
+    {
+        _mouseInput.x = Input.mousePosition.x;
+        _mouseInput.y = Input.mousePosition.y;
+        _mouseInput.z = _mainCamera.nearClipPlane;
+        Vector3 mouseWorldCoordinates = _mainCamera.ScreenToWorldPoint(_mouseInput);
+        mouseWorldCoordinates.z = 0f;
+        MovePlayerServerRpc(mouseWorldCoordinates);
+    }
+
+    [ServerRpc]
+    private void MovePlayerServerRpc(Vector3 mouseWorldCoordinates)
+    {
+        transform.position =
+           Vector3.MoveTowards(transform.position, mouseWorldCoordinates, Time.deltaTime * speed);
+
+        //Rotation
+        if (mouseWorldCoordinates != transform.position)
+        {
+            Vector3 targetDirection = mouseWorldCoordinates - transform.position;
+            targetDirection.z = 0f;
+            Quaternion targetRotation = Quaternion.LookRotation(Vector3.forward, targetDirection);
+            transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, Time.deltaTime * rotationSpeed);
+        }
+    }
+
+    //Client Authorative Movement
+    private void MovePlayerClient()
+    {
         _mouseInput.x = Input.mousePosition.x;
         _mouseInput.y = Input.mousePosition.y;
         _mouseInput.z = _mainCamera.nearClipPlane;
@@ -56,7 +92,6 @@ public class PlayerController : NetworkBehaviour
             transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, Time.deltaTime * rotationSpeed);
         }
     }
-
 
     [ServerRpc(RequireOwnership = false)]
     private void DetermineCollisionWinnerServerRpc(PlayerData player1, PlayerData player2)
@@ -107,12 +142,22 @@ public class PlayerController : NetworkBehaviour
         GameOverEvent?.Invoke(); 
         NetworkManager.Singleton.Shutdown();
     }
+
+    private IEnumerator  CollisionCheckCoroutine()
+    {
+        _canCollide = false;
+        yield return new WaitForSeconds(.5f);
+        _canCollide = true;
+    }
+
     private void OnCollisionEnter2D(Collision2D collision)
     {
         Debug.Log("Player collision");
         if (!collision.gameObject.CompareTag("Player")) return;
         if (!IsOwner) return;
-
+        if (!_canCollide) return;
+        StartCoroutine(CollisionCheckCoroutine()); 
+        
         //head-on collision
         if (collision.gameObject.TryGetComponent(out PlayerLength playerLength))
         {

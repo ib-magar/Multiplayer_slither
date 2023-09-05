@@ -23,7 +23,7 @@ public class Food : NetworkBehaviour
         {
             tail.networkedOwner.GetComponent<PlayerLength>().AddLength();
         }
-       // NetworkObjectPool.Singleton.ReturnNetworkObject(NetworkObject, prefab); 
+        //NetworkObjectPool.Singleton.ReturnNetworkObject(NetworkObject, prefab); 
         NetworkObject.Despawn();
     }
 
